@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <title>Paper Trading Pro - Confirm modal + fees (adjusted)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+<header>
+  <div class="nav-tabs" id="navTabs">
+    <div data-tab="dashboard" class="active">Dashboard</div>
+    <div data-tab="trading">Trading</div>
+    <div data-tab="journal">📖 Journal</div>
+    <div data-tab="settings">⚙️ Paramètres</div>
+  </div>
+</header>
+
+<!-- Toast Container for Notifications -->
+<div id="toastContainer" style="position:fixed;top:80px;right:20px;z-index:10000;display:flex;flex-direction:column;gap:10px;max-width:320px"></div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h3 style="margin:0 0 12px 0">Prix en direct</h3>
+    <div id="priceStatus" class="price-status loading">
+      <div class="price-status-dot"></div>
+      <span id="priceStatusText">Connexion...</span>
+    </div>
+    <div id="priceError" class="net-error" style="display:none"></div>
+    <table id="priceTable">
+      <tr><th>Token</th><th style="text-align:right">Prix</th></tr>
+    </table>
+
+    <!-- Controls at bottom of sidebar -->
+    <div style="margin-top:auto;padding-top:20px;border-top:1px solid rgba(255,255,255,.03);display:flex;gap:8px;align-items:center;justify-content:space-between">
+      <div id="darkToggle" style="padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.03);cursor:pointer;font-size:18px">🌙</div>
+      <button id="resetBtn" style="flex:1;padding:8px 12px;border-radius:8px;background:var(--danger);border:none;color:white;cursor:pointer;font-weight:600">🔄 Reset</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section id="dashboard" class="tab active">
+      <div class="widgets">
+        <div class="widget"><h3>PnL Total</h3><div id="w_pnl" class="value">$0</div></div>
+        <div class="widget"><h3>PnL %</h3><div id="w_pnl_pct" class="value">0%</div></div>
+        <div class="widget"><h3>Portfolio</h3><div id="w_portfolio" class="value">$0</div></div>
+        <div class="widget"><h3>Winrate</h3><div id="w_wr" class="value">0%</div></div>
+        <div class="widget"><h3>Trades fermés</h3><div id="w_trades" class="value">0</div></div>
+        <div class="widget"><h3>Capital initial ($)</h3><input id="portfolioInput" type="number" value="10000" style="margin-top:6px;width:100%;padding:8px;font-size:16px;font-weight:700" /></div>
+        <div class="widget"><h3>Capital disponible</h3><div id="w_available" class="value">$0</div></div>
+      </div>
+
+      <div class="box">
+        <h3>Performance</h3>
+
+        <!-- Tabs -->
+        <div class="equity-tabs">
+          <div class="equity-tab active" data-equity-tab="graph">📈 Equity</div>
+          <div class="equity-tab" data-equity-tab="stats">📊 Stats avancées</div>
+          <div class="equity-tab" data-equity-tab="objectives">🎯 Objectifs</div>
+        </div>
+
+        <!-- Graph content -->
+        <div id="equityGraphContent" class="equity-content active">
+          <!-- Time filters -->
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <button class="time-filter active" data-period="all">All</button>
+            <button class="time-filter" data-period="1y">1Y</button>
+            <button class="time-filter" data-period="6m">6M</button>
+            <button class="time-filter" data-period="3m">3M</button>
+            <button class="time-filter" data-period="1m">1M</button>
+            <button class="time-filter" data-period="1w">1W</button>
+            <button class="time-filter" data-period="1d">1D</button>
+          </div>
+
+          <!-- Period stats compact -->
+          <div id="periodStatsBox" style="display:flex;gap:20px;align-items:center;background:rgba(15,23,36,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:8px 14px;font-size:11px;margin-bottom:14px">
+            <div style="font-weight:600;font-size:12px;color:var(--accent)">📊 <span id="periodLabel">All</span></div>
+            <div style="display:flex;gap:3px;align-items:baseline">
+              <span style="color:var(--muted)">PnL:</span>
+              <span id="periodPnL" style="font-weight:600;font-size:12px">-</span>
+            </div>
+            <div style="display:flex;gap:3px;align-items:baseline">
+              <span style="color:var(--muted)">Trades:</span>
+              <span id="periodTrades" style="font-weight:600;font-size:12px">-</span>
+            </div>
+            <div style="display:flex;gap:3px;align-items:baseline">
+              <span style="color:var(--muted)">WR:</span>
+              <span id="periodWinrate" style="font-weight:600;font-size:12px">-</span>
+            </div>
+          </div>
+
+          <div style="position:relative;height:400px">
+            <canvas id="equityChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Stats content -->
+        <div id="equityStatsContent" class="equity-content">
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-label">
+                <span>Profit Factor</span>
+                <span class="info-icon" onclick="showStatInfo('profitFactor')">ℹ️</span>
+              </div>
+              <div class="stat-value" id="stat_profit_factor">-</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">
+                <span>R/R moyen</span>
+                <span class="info-icon" onclick="showStatInfo('avgRR')">ℹ️</span>
+              </div>
+              <div class="stat-value" id="stat_avg_rr">-</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">
+                <span>Max Drawdown</span>
+                <span class="info-icon" onclick="showStatInfo('maxDD')">ℹ️</span>
+              </div>
+              <div class="stat-value" id="stat_max_dd">-</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">
+                <span>Expectancy</span>
+                <span class="info-icon" onclick="showStatInfo('expectancy')">ℹ️</span>
+              </div>
+              <div class="stat-value" id="stat_expectancy">-</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">
+                <span>Longest Win Streak</span>
+                <span class="info-icon" onclick="showStatInfo('winStreak')">ℹ️</span>
+              </div>
+              <div class="stat-value" id="stat_win_streak">-</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">
+                <span>Longest Loss Streak</span>
+                <span class="info-icon" onclick="showStatInfo('lossStreak')">ℹ️</span>
+              </div>
+              <div class="stat-value" id="stat_loss_streak">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Objectives content -->
+        <div id="equityObjectivesContent" class="equity-content">
+          <div id="objectivesWidget"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="trading" class="tab">
+      <div class="trading-layout">
+        <div class="trade-zone execution-zone">
+          <div class="box execution-box">
+            <h3>Ouvrir un trade</h3>
+            <div id="trading_available" style="margin-top:6px;padding:8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:6px;font-size:13px;font-weight:600;color:var(--accent)">
+              💰 Capital disponible : <span id="trading_available_amount">$0</span>
+              <span style="margin-left:12px;font-weight:400;opacity:0.7">• Engagé : <span id="trading_engaged_amount">$0</span></span>
+            </div>
+
+            <div class="trade-form" style="margin-top:12px;align-items:flex-start">
+              <select id="t_token">
+                <option>BTCUSDT</option>
+                <option>ETHUSDT</option>
+                <option>SOLUSDT</option>
+                <option>LTCUSDT</option>
+              </select>
+
+              <select id="t_side">
+                <option value="LONG" selected>LONG</option>
+                <option value="SHORT">SHORT</option>
+              </select>
+
+              <input id="t_size" type="number" placeholder="Taille ($)" />
+              <input id="t_size_pct" type="number" placeholder="Taille (%)" />
+
+              <label style="display:flex;align-items:center;gap:6px;padding:8px;cursor:pointer;user-select:none">
+                <input type="checkbox" id="t_limit_order" style="width:auto;cursor:pointer" />
+                <span>Ordre Limit</span>
+              </label>
+
+              <input id="t_limit_price" type="number" placeholder="Prix d'entrée" style="display:none" />
+
+              <input id="t_tp" type="number" placeholder="Take Profit (prix)" />
+              <input id="t_sl" type="number" placeholder="Stop Loss (prix)" />
+
+              <div id="validationBox" class="validation">
+                <div id="rr_info" class="line">R/R : -</div>
+                <div id="sl_tp_info" class="line">SL% : - | TP% : -</div>
+                <div id="capital_after_info" class="line" style="font-size:13px;color:var(--accent);font-weight:600">Après ouverture : -</div>
+                <div id="valid_msg" class="line" style="font-size:13px;color:var(--muted)">Validation SL/TP : -</div>
+                <div id="limit_warning" class="line" style="font-size:12px;color:var(--muted);margin-top:6px;display:none"></div>
+              </div>
+
+              <div style="min-width:80px">
+                <button id="openBtn">Ouvrir</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="trade-zone tracking-zone">
+          <div class="box">
+            <h3>Trades ouverts</h3>
+            <table id="openTrades">
+              <thead>
+                <tr>
+                  <th>Token</th><th>Tags</th><th>Taille</th><th>Entrée</th><th>Actuel</th><th>SL</th><th>TP</th><th>R/R</th><th>PnL</th><th>%</th><th>Durée</th><th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="box">
+            <h3>Ordres en attente</h3>
+            <table id="pendingOrders">
+              <thead>
+                <tr>
+                  <th>Token</th><th>Tags</th><th>Taille</th><th>Prix d'entrée</th><th>Actuel</th><th>SL</th><th>TP</th><th>R/R</th><th>Écart</th><th>Durée</th><th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="journal" class="tab">
+      <div class="box">
+        <h3>📖 Journal de Trading</h3>
+
+        <!-- Filtres -->
+        <div class="journal-filters">
+          <div class="journal-filter active" data-journal-filter="all">Tous</div>
+          <div class="journal-filter" data-journal-filter="pending">En attente</div>
+          <div class="journal-filter" data-journal-filter="open">Ouverts</div>
+          <div class="journal-filter" data-journal-filter="closed">Fermés</div>
+        </div>
+
+        <!-- Conteneur des cards -->
+        <div id="journalContainer"></div>
+      </div>
+
+      <div class="box">
+        <h3>Historique</h3>
+
+        <!-- Filtres -->
+        <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+          <select id="filterToken" style="padding:8px">
+            <option value="">Tous les tokens</option>
+            <option value="BTCUSDT">BTC</option>
+            <option value="ETHUSDT">ETH</option>
+            <option value="SOLUSDT">SOL</option>
+            <option value="LTCUSDT">LTC</option>
+          </select>
+
+          <select id="filterReason" style="padding:8px">
+            <option value="">Toutes les fermetures</option>
+            <option value="TP">TP uniquement</option>
+            <option value="SL">SL uniquement</option>
+            <option value="MANUAL">Manuelles uniquement</option>
+          </select>
+
+          <select id="filterPnL" style="padding:8px">
+            <option value="">Tous les trades</option>
+            <option value="win">Gagnants uniquement</option>
+            <option value="loss">Perdants uniquement</option>
+          </select>
+
+          <button id="clearFilters" style="padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06)">Réinitialiser filtres</button>
+        </div>
+
+        <table id="tradeHistory">
+          <thead>
+            <tr>
+              <th onclick="sortHistory('token')" style="cursor:pointer;user-select:none" title="Cliquer pour trier">Token <span id="sort_token"></span></th>
+              <th>Tags</th>
+              <th onclick="sortHistory('size')" style="cursor:pointer;user-select:none" title="Cliquer pour trier">Taille <span id="sort_size"></span></th>
+              <th onclick="sortHistory('openTime')" style="cursor:pointer;user-select:none" title="Cliquer pour trier">Date ouv. <span id="sort_openTime"></span></th>
+              <th onclick="sortHistory('closeTime')" style="cursor:pointer;user-select:none" title="Cliquer pour trier">Date ferm. <span id="sort_closeTime"></span></th>
+              <th>Entrée</th>
+              <th>Sortie</th>
+              <th>Fees</th>
+              <th onclick="sortHistory('pnl')" style="cursor:pointer;user-select:none" title="Cliquer pour trier">PnL <span id="sort_pnl"></span></th>
+              <th onclick="sortHistory('percent')" style="cursor:pointer;user-select:none" title="Cliquer pour trier">% <span id="sort_percent"></span></th>
+              <th onclick="sortHistory('duration')" style="cursor:pointer;user-select:none" title="Cliquer pour trier">Durée <span id="sort_duration"></span></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="settings" class="tab">
+      <div class="box">
+        <h3>⚙️ Paramètres</h3>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-top:20px">
+
+          <!-- TAGS Section -->
+          <div>
+            <h4 style="margin:0 0 12px 0;color:var(--muted);font-size:14px;text-transform:uppercase">🏷️ Tags</h4>
+            <div id="tagsListSettings"></div>
+            <button id="addTagBtn" style="margin-top:12px;width:100%;background:rgba(59,130,246,0.1);color:var(--accent);border:1px dashed var(--accent)">+ Ajouter un tag</button>
+          </div>
+
+          <!-- TEMPLATES Section -->
+          <div>
+            <h4 style="margin:0 0 12px 0;color:var(--muted);font-size:14px;text-transform:uppercase">📋 Templates</h4>
+            <div id="templatesListSettings"></div>
+            <button id="addTemplateBtn" style="margin-top:12px;width:100%;background:rgba(59,130,246,0.1);color:var(--accent);border:1px dashed var(--accent)">+ Ajouter un template</button>
+          </div>
+
+          <!-- OBJECTIVES Section -->
+          <div>
+            <h4 style="margin:0 0 12px 0;color:var(--muted);font-size:14px;text-transform:uppercase">🎯 Objectifs</h4>
+            <div id="objectivesListSettings"></div>
+            <button id="addObjectiveBtn" style="margin-top:12px;width:100%;background:rgba(59,130,246,0.1);color:var(--accent);border:1px dashed var(--accent)">+ Nouvel objectif</button>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- MODAL -->
+<div id="confirmModalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <h3>Confirmation d'ouverture</h3>
+
+    <div class="line-title">Prix d’entrée</div>
+    <div class="line-value"><span id="m_entry" class="mono">$0.00</span></div>
+
+    <div class="line-title">Take Profit</div>
+    <div class="line-sub">• Prix : <span id="m_tp_price">-</span></div>
+    <div class="line-sub">• Variation : <span id="m_tp_var">-</span></div>
+    <div class="line-sub">• Gain net : <span id="m_tp_gain">-</span></div>
+
+    <div class="line-title" style="margin-top:10px">Stop Loss</div>
+    <div class="line-sub">• Prix : <span id="m_sl_price">-</span></div>
+    <div class="line-sub">• Variation : <span id="m_sl_var">-</span></div>
+    <div class="line-sub">• Perte nette : <span id="m_sl_loss">-</span></div>
+
+    <div class="line-title" style="margin-top:10px">Risque / Rendement</div>
+    <div class="line-value"><span id="m_rr">-</span></div>
+
+    <div class="small-muted-2" style="margin-top:10px">
+      Le prix affiché est mis à jour toutes les secondes. Le prix réel sera celui au moment du clic sur “Confirmer”.
+    </div>
+
+    <div class="actions">
+      <button class="btn-cancel" id="modalCancel">Annuler</button>
+      <button id="modalConfirm">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESET MODAL -->
+<div id="resetModalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <h3>⚠️ Confirmer la réinitialisation</h3>
+
+    <p style="margin:12px 0;line-height:1.6">
+      Êtes-vous sûr de vouloir réinitialiser <strong>toutes les données</strong> ?
+    </p>
+
+    <p style="color:var(--danger);font-size:14px;margin:8px 0">
+      Cela supprimera :
+    </p>
+    <ul style="color:var(--muted);font-size:14px;line-height:1.8">
+      <li>Tous les trades ouverts</li>
+      <li>L'historique complet</li>
+      <li>Les statistiques</li>
+      <li>Le capital sera remis à 10 000$</li>
+    </ul>
+
+    <p style="color:var(--danger);font-weight:600;margin-top:12px;font-size:13px">
+      ⚠️ Cette action est irréversible !
+    </p>
+
+    <div class="actions">
+      <button class="btn-cancel" id="resetModalCancel">Annuler</button>
+      <button id="resetModalConfirm" style="background:var(--danger)">Confirmer la réinitialisation</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRMATION MODAL (Actions destructives) -->
+<div id="confirmActionModalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <h3 id="confirmActionTitle">⚠️ Confirmer l'action</h3>
+    <p id="confirmActionMessage" style="margin:12px 0;line-height:1.6;color:var(--muted)">
+      Êtes-vous sûr de vouloir continuer ?
+    </p>
+    <div id="confirmActionDynamic" style="display:none;margin:12px 0;padding:12px;background:rgba(255,255,255,0.02);border-radius:8px;border:1px solid rgba(255,255,255,0.04)">
+      <div class="line-title">Prix actuel</div>
+      <div class="line-value"><span id="confirmActionPrice" class="mono">$0.00</span></div>
+      <div class="line-title" style="margin-top:8px">P&L estimé</div>
+      <div class="line-value"><span id="confirmActionPnL" class="mono">$0.00</span> (<span id="confirmActionPercent">0.00%</span>)</div>
+      <div class="small-muted-2" style="margin-top:8px">
+        Le prix est mis à jour toutes les secondes. La fermeture se fera au prix réel du moment.
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn-cancel" id="confirmActionCancel">Annuler</button>
+      <button id="confirmActionConfirm" style="background:var(--danger)">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT TRADE MODAL -->
+<div id="editTradeModalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <h3>✏️ Modifier le trade</h3>
+
+    <div class="line-title"><span id="edit_token_side">BTCUSDT LONG</span></div>
+    <div class="line-sub">• Ouvert à : <span id="edit_entry_price">$0.00</span></div>
+    <div class="line-sub">• Prix actuel : <span id="edit_current_price">$0.00</span> (<span id="edit_current_var">+0.00%</span>)</div>
+
+    <div style="margin-top:12px">
+      <div class="line-title">Take Profit (prix)</div>
+      <input id="edit_tp" type="number" placeholder="Nouveau TP (ou vide pour retirer)" style="width:100%;margin-top:6px" />
+      <div class="line-sub" id="edit_tp_info" style="margin-top:4px">• Variation : -</div>
+      <div class="line-sub" id="edit_tp_gain">• Gain net : -</div>
+    </div>
+
+    <div style="margin-top:12px">
+      <div class="line-title">Stop Loss (prix)</div>
+      <input id="edit_sl" type="number" placeholder="Nouveau SL (ou vide pour retirer)" style="width:100%;margin-top:6px" />
+      <div class="line-sub" id="edit_sl_info" style="margin-top:4px">• Variation : -</div>
+      <div class="line-sub" id="edit_sl_loss">• Perte nette : -</div>
+    </div>
+
+    <div class="line-title" style="margin-top:12px">Nouveau Risque / Rendement</div>
+    <div class="line-value"><span id="edit_rr">-</span></div>
+
+    <div class="small-muted-2" style="margin-top:10px">
+      💡 Laisse vide pour retirer TP/SL
+    </div>
+
+    <div class="actions">
+      <button class="btn-cancel" id="editModalCancel">Annuler</button>
+      <button id="editModalConfirm">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT PENDING ORDER MODAL -->
+<div id="editPendingOrderModalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <h3>✏️ Modifier l'ordre en attente</h3>
+
+    <div class="line-title"><span id="edit_pending_token_side">BTCUSDT LONG</span></div>
+    <div class="line-sub">• Prix actuel : <span id="edit_pending_current_price">$0.00</span></div>
+
+    <div style="margin-top:12px">
+      <div class="line-title">Prix d'entrée</div>
+      <input id="edit_pending_limit_price" type="number" placeholder="Prix d'entrée" style="width:100%;margin-top:6px" />
+      <div class="line-sub" id="edit_pending_limit_info" style="margin-top:4px">• Écart : -</div>
+    </div>
+
+    <div style="margin-top:12px">
+      <div class="line-title">Take Profit (prix)</div>
+      <input id="edit_pending_tp" type="number" placeholder="Nouveau TP (ou vide pour retirer)" style="width:100%;margin-top:6px" />
+      <div class="line-sub" id="edit_pending_tp_info" style="margin-top:4px">• Variation depuis entrée : -</div>
+    </div>
+
+    <div style="margin-top:12px">
+      <div class="line-title">Stop Loss (prix)</div>
+      <input id="edit_pending_sl" type="number" placeholder="Nouveau SL (ou vide pour retirer)" style="width:100%;margin-top:6px" />
+      <div class="line-sub" id="edit_pending_sl_info" style="margin-top:4px">• Variation depuis entrée : -</div>
+    </div>
+
+    <div class="line-title" style="margin-top:12px">Risque / Rendement</div>
+    <div class="line-value"><span id="edit_pending_rr">-</span></div>
+
+    <div class="small-muted-2" style="margin-top:10px">
+      💡 Laisse vide pour retirer TP/SL
+    </div>
+
+    <div class="actions">
+      <button class="btn-cancel" id="editPendingOrderModalCancel">Annuler</button>
+      <button id="editPendingOrderModalConfirm">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- INFO TOOLTIP -->
+<div id="infoTooltipBackdrop" class="info-tooltip-backdrop" onclick="hideStatInfo()"></div>
+<div id="infoTooltip" class="info-tooltip">
+  <button class="info-tooltip-close" onclick="hideStatInfo()">×</button>
+  <div id="infoTooltipContent"></div>
+</div>
+
+<!-- JOURNAL MODAL -->
+<div id="journalModalBackdrop" class="modal-backdrop">
+  <div class="modal journal-modal">
+    <h3>📝 Ajouter au journal</h3>
+
+    <div class="line-title"><span id="journal_trade_info">BTC LONG • $65,432</span></div>
+    <div class="line-sub">• TP: <span id="journal_tp">$67,000</span> | SL: <span id="journal_sl">$64,000</span></div>
+
+    <div style="margin-top:12px">
+      <div class="line-title">🏷️ Tags (max 3, optionnel)</div>
+      <div id="journalTagsSelector" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div>
+    </div>
+
+    <div style="margin-top:12px">
+      <div class="line-title">📋 Templates rapides (optionnel)</div>
+      <div id="journalTemplatesSelector" style="margin-top:6px"></div>
+    </div>
+
+    <div style="margin-top:12px">
+      <div class="line-title">💭 Notes (optionnel)</div>
+      <textarea id="journal_note" placeholder="Pourquoi ce trade ? Setup utilisé, niveau clé, confluences, etc.&#10;&#10;Exemple :&#10;- Breakout de résistance $65,000&#10;- Volume confirmé&#10;- RSI oversold sur 4H"></textarea>
+    </div>
+
+    <div style="margin-top:12px">
+      <div class="line-title">📸 Screenshots TradingView (optionnel)</div>
+      <div class="upload-zone" id="uploadZone">
+        <div style="font-size:32px;margin-bottom:8px">📷</div>
+        <div>Cliquer ou déposer des images</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Max 3 images • PNG, JPG</div>
+      </div>
+      <input type="file" id="journalImageInput" accept="image/*" multiple style="display:none" />
+      <div class="image-previews" id="imagePreviews"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-cancel" id="journalModalSkip">Skip</button>
+      <button id="journalModalSave">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE VIEWER MODAL -->
+<div id="imageViewerModal" class="image-viewer-modal" onclick="closeImageViewer()">
+  <button class="image-viewer-close" onclick="closeImageViewer()">×</button>
+  <img id="imageViewerImg" src="" alt="Screenshot" onclick="event.stopPropagation()" />
+</div>
+  <script src="js/app.js" defer></script>
+</body>
+</html>
