@@ -1,12 +1,30 @@
-/* ------- TABS -------- */
-const tabs = document.querySelectorAll('.nav-tabs div');
-tabs.forEach(t => t.addEventListener('click', () => {
-  tabs.forEach(x => x.classList.remove('active'));
-  t.classList.add('active');
-  document.querySelectorAll('.tab').forEach(p => p.classList.remove('active'));
-  const target = document.getElementById(t.dataset.tab);
-  if (target) target.classList.add('active');
+/* ------- VIEWS -------- */
+const viewButtons = document.querySelectorAll('[data-view]');
+const viewTargets = document.querySelectorAll('.view');
+const viewJumpButtons = document.querySelectorAll('[data-view-target]');
+
+function setActiveView(viewId){
+  viewButtons.forEach(button => {
+    button.classList.toggle('active', button.dataset.view === viewId);
+  });
+  viewTargets.forEach(view => {
+    view.classList.toggle('active', view.id === viewId);
+  });
+  document.querySelectorAll('.comment-box').forEach(box => box.classList.remove('highlight'));
+  if(viewId === 'history'){
+    renderJournal();
+  }
+}
+
+viewButtons.forEach(button => button.addEventListener('click', () => {
+  setActiveView(button.dataset.view);
 }));
+
+viewJumpButtons.forEach(button => button.addEventListener('click', () => {
+  setActiveView(button.dataset.viewTarget);
+}));
+
+setActiveView('overview');
 
 /* ------- EQUITY TABS -------- */
 const equityTabs = document.querySelectorAll('.equity-tab');
@@ -164,6 +182,8 @@ darkToggle.addEventListener('click', () => {
 const TAKER_FEE = 0.001;
 const symbols = ["BTCUSDT","ETHUSDT","SOLUSDT","LTCUSDT"];
 let prices = {};
+let quickJournalNote = '';
+const quickJournalInput = document.getElementById('quickJournalNote');
 const fallbackPrices = { BTCUSDT:65000, ETHUSDT:4000, SOLUSDT:150, LTCUSDT:120 };
 
 async function fetchPrice(sym){
@@ -1053,6 +1073,7 @@ document.getElementById('openBtn').addEventListener('click',()=>{
 
     // Open journal modal for pending order
     const orderIndex = pendingOrders.length - 1;
+    stashQuickJournalNote();
     openJournalModalForPendingOrder(orderIndex);
 
     // Reset form
@@ -1191,7 +1212,10 @@ console.log("DEBUG SIZE =", size, "ENTRY =", entry, "QTY =", qty, "FEES ENTRY ="
 
   // Open journal modal immediately after
   const tradeIndex = openTrades.length - 1;
+  stashQuickJournalNote();
   openJournalModal(tradeIndex);
+  setActiveView('new-trade');
+  highlightCommentPrompt();
 });
 
 /* ---- CLOSE TRADE (MODIFIÉ) ---- */
@@ -1343,6 +1367,28 @@ let journalImages = [];
 let expandedJournalCards = new Set(); // Track which cards are expanded
 const MAX_JOURNAL_IMAGES = 3;
 
+function stashQuickJournalNote(){
+  if(!quickJournalInput) return;
+  quickJournalNote = quickJournalInput.value.trim();
+  quickJournalInput.value = '';
+}
+
+function applyQuickJournalNote(){
+  if(!quickJournalNote) return;
+  const noteEl = document.getElementById('journal_note');
+  if(noteEl && !noteEl.value.trim()){
+    noteEl.value = quickJournalNote;
+  }
+  quickJournalNote = '';
+}
+
+function highlightCommentPrompt(){
+  const commentBox = document.getElementById('commentPrompt');
+  if(commentBox){
+    commentBox.classList.add('highlight');
+  }
+}
+
 // Open journal modal
 function openJournalModal(tradeIndex){
   currentJournalTradeIndex = tradeIndex;
@@ -1358,6 +1404,7 @@ function openJournalModal(tradeIndex){
 
   // Clear inputs
   document.getElementById('journal_note').value = '';
+  applyQuickJournalNote();
   document.getElementById('imagePreviews').innerHTML = '';
 
   // Render tags and templates selectors
@@ -1383,6 +1430,7 @@ function openJournalModalForPendingOrder(orderIndex){
 
   // Clear inputs
   document.getElementById('journal_note').value = '';
+  applyQuickJournalNote();
   document.getElementById('imagePreviews').innerHTML = '';
 
   // Render tags and templates selectors
@@ -1764,6 +1812,73 @@ function escapeHtml(text){
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+function renderRecentActivity(){
+  const container = document.getElementById('recentActivity');
+  if(!container) return;
+
+  const items = [];
+
+  pendingOrders.forEach(order => {
+    items.push({
+      status: 'pending',
+      timestamp: order.createTime,
+      title: `${order.token} ${order.side}`,
+      entryLabel: 'Limite',
+      entry: order.limitPrice,
+      note: order.journalNote
+    });
+  });
+
+  openTrades.forEach(trade => {
+    items.push({
+      status: 'open',
+      timestamp: trade.openTime,
+      title: `${trade.token} ${trade.side}`,
+      entryLabel: 'Entrée',
+      entry: trade.entry,
+      note: trade.journalNote
+    });
+  });
+
+  history.forEach(trade => {
+    items.push({
+      status: 'closed',
+      timestamp: trade.closeTime || trade.openTime,
+      title: `${trade.token} ${trade.side}`,
+      entryLabel: 'Entrée',
+      entry: trade.entry,
+      note: trade.journalNote
+    });
+  });
+
+  items.sort((a, b) => b.timestamp - a.timestamp);
+
+  const recent = items.slice(0, 6);
+  if(recent.length === 0){
+    container.innerHTML = '<div class="recent-empty">Aucune activité récente pour le moment.</div>';
+    return;
+  }
+
+  container.innerHTML = recent.map(item => {
+    const statusText = item.status === 'open' ? 'Ouvert' : item.status === 'pending' ? 'En attente' : 'Fermé';
+    const note = item.note ? escapeHtml(item.note).replace(/\s+/g, ' ').trim() : 'Aucun commentaire';
+    const timeLabel = formatTimeAgo(item.timestamp);
+    return `
+      <div class="recent-item">
+        <div class="recent-main">
+          <div class="recent-title">${item.title}</div>
+          <div class="recent-meta">
+            <span>${item.entryLabel} : $${item.entry.toFixed(2)}</span>
+            <span>${timeLabel}</span>
+          </div>
+          <div class="recent-note">${note}</div>
+        </div>
+        <div class="recent-status ${item.status}">${statusText}</div>
+      </div>
+    `;
+  }).join('');
 }
 
 // Journal filters
@@ -2185,6 +2300,13 @@ function formatDate(timestamp){
   return `${day}/${month}/${year} ${hours}:${mins}`;
 }
 
+function formatNoteExcerpt(note){
+  if(!note) return '<span class="note-excerpt empty">—</span>';
+  const clean = escapeHtml(note).replace(/\s+/g, ' ').trim();
+  const text = clean.length > 90 ? `${clean.slice(0, 87)}…` : clean;
+  return `<span class="note-excerpt">${text}</span>`;
+}
+
 /* ----- COLOR CODING FUNCTIONS ----- */
 function getPnLColorClass(percentPnL){
   if(percentPnL >= 3) return 'pnl-big-gain';
@@ -2230,10 +2352,12 @@ function renderOpenTrades(){
     // Tags
     const tagsHTML = formatTagsBadges(t.tags || []);
 
+    const noteExcerpt = formatNoteExcerpt(t.journalNote);
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td><strong>${t.token}</strong> <span style="color:var(--muted);font-size:13px">${t.side}</span></td>
       <td>${tagsHTML}</td>
+      <td>${noteExcerpt}</td>
       <td class="mono">$${t.size.toFixed(2)}</td>
       <td class="mono">$${t.entry.toFixed(2)}</td>
       <td class="mono">$${price.toFixed(2)}</td>
@@ -2281,10 +2405,12 @@ function renderPendingOrders(){
     // Tags
     const tagsHTML = formatTagsBadges(order.tags || []);
 
+    const noteExcerpt = formatNoteExcerpt(order.journalNote);
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td><strong>${order.token}</strong> <span style="color:var(--muted);font-size:13px">${order.side}</span></td>
       <td>${tagsHTML}</td>
+      <td>${noteExcerpt}</td>
       <td class="mono">$${order.size.toFixed(2)}</td>
       <td class="mono">$${order.limitPrice.toFixed(2)}</td>
       <td class="mono">$${currentPrice.toFixed(2)}</td>
@@ -2994,12 +3120,13 @@ async function refreshLoop(){
   renderOpenTrades();
   renderPendingOrders();
   renderHistory();
+  renderRecentActivity();
   updateDashboard();
   updateTradeCount();
 
   // Refresh journal if tab is active
-  const journalTab = document.getElementById('journal');
-  if(journalTab && journalTab.classList.contains('active')){
+  const historyView = document.getElementById('history');
+  if(historyView && historyView.classList.contains('active')){
     renderJournal();
   }
 }
