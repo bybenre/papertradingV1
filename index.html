@@ -9,11 +9,11 @@
 
 <body>
 <header>
-  <div class="main-nav" id="mainNav">
-    <button class="nav-item active" data-view="overview">Aperçu</button>
-    <button class="nav-item" data-view="new-trade">Nouveau trade</button>
-    <button class="nav-item" data-view="tracking">Suivi</button>
-    <button class="nav-item" data-view="history">Historique</button>
+  <div class="nav-tabs" id="navTabs">
+    <div data-tab="dashboard" class="active">Dashboard</div>
+    <div data-tab="trading">Trading</div>
+    <div data-tab="journal">📖 Journal</div>
+    <div data-tab="settings">⚙️ Paramètres</div>
   </div>
 </header>
 
@@ -40,15 +40,7 @@
   </aside>
 
   <main class="main">
-    <section id="overview" class="view active">
-      <div class="view-header">
-        <div>
-          <h2>Aperçu</h2>
-          <p class="section-subtitle">Vue synthétique et mémoire récente.</p>
-        </div>
-        <button class="ghost-button" data-view-target="new-trade">+ Nouveau trade</button>
-      </div>
-
+    <section id="dashboard" class="tab active">
       <div class="widgets">
         <div class="widget"><h3>PnL Total</h3><div id="w_pnl" class="value">$0</div></div>
         <div class="widget"><h3>PnL %</h3><div id="w_pnl_pct" class="value">0%</div></div>
@@ -57,124 +49,6 @@
         <div class="widget"><h3>Trades fermés</h3><div id="w_trades" class="value">0</div></div>
         <div class="widget"><h3>Capital initial ($)</h3><input id="portfolioInput" type="number" value="10000" style="margin-top:6px;width:100%;padding:8px;font-size:16px;font-weight:700" /></div>
         <div class="widget"><h3>Capital disponible</h3><div id="w_available" class="value">$0</div></div>
-      </div>
-
-      <div class="box">
-        <h3>Activité récente</h3>
-        <div id="recentActivity" class="recent-activity"></div>
-      </div>
-    </section>
-
-    <section id="new-trade" class="view">
-      <div class="view-header">
-        <div>
-          <h2>Nouveau trade</h2>
-          <p class="section-subtitle">Formaliser une décision déjà prise.</p>
-        </div>
-      </div>
-
-      <div class="trading-layout">
-        <div class="trade-zone execution-zone">
-          <div class="box execution-box">
-            <h3>Ouvrir un trade</h3>
-            <div id="trading_available" style="margin-top:6px;padding:8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:6px;font-size:13px;font-weight:600;color:var(--accent)">
-              💰 Capital disponible : <span id="trading_available_amount">$0</span>
-              <span style="margin-left:12px;font-weight:400;opacity:0.7">• Engagé : <span id="trading_engaged_amount">$0</span></span>
-            </div>
-
-            <div class="trade-form" style="margin-top:12px;align-items:flex-start">
-              <select id="t_token">
-                <option>BTCUSDT</option>
-                <option>ETHUSDT</option>
-                <option>SOLUSDT</option>
-                <option>LTCUSDT</option>
-              </select>
-
-              <select id="t_side">
-                <option value="LONG" selected>LONG</option>
-                <option value="SHORT">SHORT</option>
-              </select>
-
-              <input id="t_size" type="number" placeholder="Taille ($)" />
-              <input id="t_size_pct" type="number" placeholder="Taille (%)" />
-
-              <label style="display:flex;align-items:center;gap:6px;padding:8px;cursor:pointer;user-select:none">
-                <input type="checkbox" id="t_limit_order" style="width:auto;cursor:pointer" />
-                <span>Ordre Limit</span>
-              </label>
-
-              <input id="t_limit_price" type="number" placeholder="Prix d'entrée" style="display:none" />
-
-              <input id="t_tp" type="number" placeholder="Take Profit (prix)" />
-              <input id="t_sl" type="number" placeholder="Stop Loss (prix)" />
-
-              <div id="validationBox" class="validation">
-                <div id="rr_info" class="line">R/R : -</div>
-                <div id="sl_tp_info" class="line">SL% : - | TP% : -</div>
-                <div id="capital_after_info" class="line" style="font-size:13px;color:var(--accent);font-weight:600">Après ouverture : -</div>
-                <div id="valid_msg" class="line" style="font-size:13px;color:var(--muted)">Validation SL/TP : -</div>
-                <div id="limit_warning" class="line" style="font-size:12px;color:var(--muted);margin-top:6px;display:none"></div>
-              </div>
-
-              <div style="min-width:80px">
-                <button id="openBtn">Ouvrir</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="box comment-box" id="commentPrompt">
-        <h3>Commentaire (optionnel)</h3>
-        <p class="section-subtitle">Prépare un contexte rapide pour le journal. Ce champ ne bloque jamais l'exécution.</p>
-        <textarea id="quickJournalNote" placeholder="Ex: Breakout confirmé, contexte macro, gestion du risque..."></textarea>
-        <div class="comment-hint">💡 Le commentaire complet reste éditable après l'ouverture.</div>
-      </div>
-    </section>
-
-    <section id="tracking" class="view">
-      <div class="view-header">
-        <div>
-          <h2>Suivi</h2>
-          <p class="section-subtitle">Surveiller et gérer les positions actives.</p>
-        </div>
-      </div>
-
-      <div class="trading-layout">
-        <div class="trade-zone tracking-zone">
-          <div class="box">
-            <h3>Trades ouverts</h3>
-            <table id="openTrades">
-              <thead>
-                <tr>
-                  <th>Token</th><th>Tags</th><th>Commentaire</th><th>Taille</th><th>Entrée</th><th>Actuel</th><th>SL</th><th>TP</th><th>R/R</th><th>PnL</th><th>%</th><th>Durée</th><th></th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-
-          <div class="box">
-            <h3>Ordres en attente</h3>
-            <table id="pendingOrders">
-              <thead>
-                <tr>
-                  <th>Token</th><th>Tags</th><th>Commentaire</th><th>Taille</th><th>Prix d'entrée</th><th>Actuel</th><th>SL</th><th>TP</th><th>R/R</th><th>Écart</th><th>Durée</th><th></th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="history" class="view">
-      <div class="view-header">
-        <div>
-          <h2>Historique</h2>
-          <p class="section-subtitle">Analyse, journal complet et mémoire durable.</p>
-        </div>
       </div>
 
       <div class="box">
@@ -275,7 +149,88 @@
           <div id="objectivesWidget"></div>
         </div>
       </div>
+    </section>
 
+    <section id="trading" class="tab">
+      <div class="trading-layout">
+        <div class="trade-zone execution-zone">
+          <div class="box execution-box">
+            <h3>Ouvrir un trade</h3>
+            <div id="trading_available" style="margin-top:6px;padding:8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:6px;font-size:13px;font-weight:600;color:var(--accent)">
+              💰 Capital disponible : <span id="trading_available_amount">$0</span>
+              <span style="margin-left:12px;font-weight:400;opacity:0.7">• Engagé : <span id="trading_engaged_amount">$0</span></span>
+            </div>
+
+            <div class="trade-form" style="margin-top:12px;align-items:flex-start">
+              <select id="t_token">
+                <option>BTCUSDT</option>
+                <option>ETHUSDT</option>
+                <option>SOLUSDT</option>
+                <option>LTCUSDT</option>
+              </select>
+
+              <select id="t_side">
+                <option value="LONG" selected>LONG</option>
+                <option value="SHORT">SHORT</option>
+              </select>
+
+              <input id="t_size" type="number" placeholder="Taille ($)" />
+              <input id="t_size_pct" type="number" placeholder="Taille (%)" />
+
+              <label style="display:flex;align-items:center;gap:6px;padding:8px;cursor:pointer;user-select:none">
+                <input type="checkbox" id="t_limit_order" style="width:auto;cursor:pointer" />
+                <span>Ordre Limit</span>
+              </label>
+
+              <input id="t_limit_price" type="number" placeholder="Prix d'entrée" style="display:none" />
+
+              <input id="t_tp" type="number" placeholder="Take Profit (prix)" />
+              <input id="t_sl" type="number" placeholder="Stop Loss (prix)" />
+
+              <div id="validationBox" class="validation">
+                <div id="rr_info" class="line">R/R : -</div>
+                <div id="sl_tp_info" class="line">SL% : - | TP% : -</div>
+                <div id="capital_after_info" class="line" style="font-size:13px;color:var(--accent);font-weight:600">Après ouverture : -</div>
+                <div id="valid_msg" class="line" style="font-size:13px;color:var(--muted)">Validation SL/TP : -</div>
+                <div id="limit_warning" class="line" style="font-size:12px;color:var(--muted);margin-top:6px;display:none"></div>
+              </div>
+
+              <div style="min-width:80px">
+                <button id="openBtn">Ouvrir</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="trade-zone tracking-zone">
+          <div class="box">
+            <h3>Trades ouverts</h3>
+            <table id="openTrades">
+              <thead>
+                <tr>
+                  <th>Token</th><th>Tags</th><th>Taille</th><th>Entrée</th><th>Actuel</th><th>SL</th><th>TP</th><th>R/R</th><th>PnL</th><th>%</th><th>Durée</th><th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="box">
+            <h3>Ordres en attente</h3>
+            <table id="pendingOrders">
+              <thead>
+                <tr>
+                  <th>Token</th><th>Tags</th><th>Taille</th><th>Prix d'entrée</th><th>Actuel</th><th>SL</th><th>TP</th><th>R/R</th><th>Écart</th><th>Durée</th><th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="journal" class="tab">
       <div class="box">
         <h3>📖 Journal de Trading</h3>
 
@@ -340,7 +295,9 @@
           <tbody></tbody>
         </table>
       </div>
+    </section>
 
+    <section id="settings" class="tab">
       <div class="box">
         <h3>⚙️ Paramètres</h3>
 
